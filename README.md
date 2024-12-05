@@ -21,8 +21,10 @@ of Pdf2Dom with no font decoding support but significantly reduced dependencies.
 
 Readme from Sugata Bhar's end
 
+This is a Maven based project.
+
 The output folder holds the responsive implementation.
 
-PDFToHTML.jar can convert pdf to html using the example command:
+PDFToHTML.jar can convert pdf to html(giving absolutely positioned elements) using the example command:
 
 java -jar PDFToHTML.jar test.pdf test.pdf.html
