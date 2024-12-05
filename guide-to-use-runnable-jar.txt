@@ -1,0 +1,147 @@
+To call specific functions from PDFToHTML.jar in Eclipse, you'll need to include the JAR in your project and use its classes and methods in your Java code. Here's a step-by-step guide to achieve this:
+
+Step 1: Add PDFToHTML.jar to Your Eclipse Project
+Open Eclipse and go to your Java project.
+Right-click on your project name in the Project Explorer on the left.
+From the context menu, select Build Path > Add External Archives.
+Navigate to the location of PDFToHTML.jar on your filesystem, select it, and click Open.
+This will add the JAR to your project's classpath, allowing you to use the classes and methods contained in it.
+Step 2: Explore the Classes and Methods in PDFToHTML.jar
+To figure out which classes and methods you want to call from PDFToHTML.jar, follow these steps:
+
+View the JAR contents:
+In Eclipse, open the Package Explorer view.
+Expand your project folder and then the Referenced Libraries section.
+Find PDFToHTML.jar and right-click on it, then select Open to browse the classes inside the JAR.
+Look for relevant classes:
+You can explore the classes inside the JAR and look for the ones related to PDF conversion (likely named something like PDFToHTMLProcessor, Converter, etc.).
+Look for methods that perform the conversion, such as convert(), process(), or similar.
+Step 3: Create a Java Class to Call Methods from the JAR
+Once you've identified the class and method you want to use, you can write Java code to call it. Here's an example of how to do this.
+
+Example Code:
+Suppose PDFToHTML.jar has a class PDFToHTMLProcessor with a method convert(File input, File output) for converting a PDF file to HTML.
+
+Create a new Java class in your project:
+
+Right-click on the src folder in your project and select New > Class.
+Name the class PDFConversionExample or whatever you prefer.
+Write code to use the PDFToHTMLProcessor class:
+
+
+import java.io.File;
+import org.somepackage.PDFToHTMLProcessor;  // Replace with the correct package and class name
+
+public class PDFConversionExample {
+    public static void main(String[] args) {
+        // Path to the input PDF and output HTML files
+        File inputPdf = new File("path/to/your/input.pdf");
+        File outputHtml = new File("path/to/your/output.html");
+
+        try {
+            // Create an instance of the PDFToHTMLProcessor class (replace with the actual class name)
+            PDFToHTMLProcessor processor = new PDFToHTMLProcessor();
+
+            // Call the convert method (replace with actual method signature)
+            processor.convert(inputPdf, outputHtml);
+
+            System.out.println("PDF successfully converted to HTML!");
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("Error during PDF to HTML conversion.");
+        }
+    }
+}
+In this example, we are assuming that the PDFToHTMLProcessor class has a convert() method that takes an input PDF file and an output HTML file as arguments. You'll need to replace PDFToHTMLProcessor and convert() with the actual class and method names found in PDFToHTML.jar.
+Run the class:
+
+Right-click on the PDFConversionExample class in the Project Explorer and select Run As > Java Application.
+Step 4: Debug or Log for Output (Optional)
+To debug and make sure that the method is being called correctly, you can use logging or simple print statements:
+
+
+System.out.println("Starting PDF to HTML conversion...");
+processor.convert(inputPdf, outputHtml);
+System.out.println("Conversion completed.");
+If the method doesn't work as expected or if you get an error, you can look at the exception stack trace to understand what went wrong.
+
+Step 5: Handle Exceptions
+Make sure you handle potential exceptions like IOException or NullPointerException when working with files. You can wrap your method calls in try-catch blocks and display error messages if necessary.
+
+Step 6: Customizing the Output
+Once the conversion is done, you can add additional logic to modify the resulting HTML file (e.g., embedding images, applying CSS, or modifying the HTML structure). You can use classes like FileReader, BufferedReader, or FileWriter to manipulate the HTML content.
+
+Recap of Key Steps:
+Add the JAR to your project: Use Eclipse's "Add External Archives" to include PDFToHTML.jar.
+Explore the classes in the JAR: Identify the class and method you need to call (e.g., PDFToHTMLProcessor.convert()).
+Write code to call the method: Create a new Java class and call the relevant method in the JAR to convert PDFs to HTML.
+Debug and log output: Use logging or print statements to confirm that the method is being called successfully.
+Let me know if you need further assistance or if you have specific questions about how to call certain methods in the PDFToHTML.jar!
+
+---
+
+
+The issue you're experiencing is due to how the Java classpath works with executable JAR files. When running a Java application with a JAR file, the dependencies bundled inside the JAR may not automatically become part of the runtime classpath, especially if the JAR file relies on a manifest file (META-INF/MANIFEST.MF) to specify its classpath or dependencies.
+
+Here’s why it’s happening and how to fix it:
+
+Why Is It Asking for Dependencies?
+Classpath Misconfiguration: The PDFToHTML.jar file contains all the dependencies (e.g., fontverter, fontbox, slf4j), but Java does not always automatically load these libraries at runtime unless explicitly instructed.
+
+Manifest Class-Path: Inside the META-INF/MANIFEST.MF file of PDFToHTML.jar, there might not be an entry that correctly specifies the other bundled dependencies. Java will then fail to resolve classes such as org.mabb.fontverter.pdf.PdfFontExtractor unless they are explicitly referenced.
+
+Standalone JAR Behavior: Even though PDFToHTML.jar is runnable, Java only looks for the Main-Class and doesn't automatically resolve or load all nested dependencies unless they are explicitly included.
+
+How to Resolve the Issue
+Option 1: Use the Fat JAR Approach (Repackage PDFToHTML)
+If the PDFToHTML.jar is supposed to be a self-contained executable JAR (also called a "fat JAR" or "uber JAR"), you need to ensure all dependencies are bundled inside it and correctly referenced in the MANIFEST.MF.
+
+Open the PDFToHTML.jar file using a tool like WinRAR or 7-Zip.
+Check for the presence of dependencies under /lib or directly in the root of the JAR.
+Check the META-INF/MANIFEST.MF file for a Class-Path entry. If it’s missing or incorrect, you’ll need to repackage the JAR file with the correct dependencies and manifest.
+To repackage:
+
+Use a tool like Maven’s shade plugin or Gradle’s shadow plugin to create a proper "fat JAR."
+Option 2: Run the JAR with All Dependencies Explicitly in Classpath
+Even if dependencies are inside the JAR, you can explicitly include them in your classpath. Use the following approach:
+
+bash
+Copy code
+java -cp "target/pdf2dom-2.0.4-SNAPSHOT.jar;D:\Pdf2Dom\target\classes;D:\Pdf2Dom\target\PDFToHTML.jar;C:\Users\Administrator\.m2\repository\org\apache\pdfbox\pdfbox\2.0.27\pdfbox-2.0.27.jar;C:\Users\Administrator\.m2\repository\org\apache\fontbox\fontbox\2.0.29\fontbox-2.0.29.jar;..." org.fit.pdfdom.PDFToHTML test.pdf output2.html
+Ensure that you explicitly list all the dependent libraries in the -cp (classpath).
+
+Option 3: Extract and Execute the JAR
+If the dependencies are already inside PDFToHTML.jar, you can extract the JAR into a folder and include the extracted files in the classpath.
+
+Extract the JAR file:
+bash
+Copy code
+jar -xvf PDFToHTML.jar
+Run the program using the extracted classes:
+bash
+Copy code
+java -cp "extracted-folder-path;." org.fit.pdfdom.PDFToHTML test.pdf output2.html
+Option 4: Debug the Manifest File
+Open the PDFToHTML.jar and inspect the manifest (META-INF/MANIFEST.MF) file. It should look something like this:
+
+plaintext
+Copy code
+Main-Class: org.fit.pdfdom.PDFToHTML
+Class-Path: lib/pdfbox-2.0.27.jar lib/fontbox-2.0.29.jar lib/commons-logging-1.2.jar lib/slf4j-api-1.7.32.jar
+If the Class-Path entry is missing or incomplete, dependencies are not being loaded. Add the correct dependencies and repackage the JAR.
+
+Why This Happens Even in Runnable JARs
+A runnable JAR does not automatically unpack and load dependencies unless:
+
+They are referenced in the Class-Path attribute of the manifest.
+A classloader is explicitly configured to load them.
+In your case, while the dependencies are present inside PDFToHTML.jar, they are not being properly referenced due to an incomplete or missing Class-Path configuration in the manifest.
+
+Best Practice
+To avoid such issues, it's better to:
+
+Use tools like Maven or Gradle to package all dependencies correctly.
+Ensure a "fat JAR" approach if the JAR is intended to be self-contained.
+Always check the MANIFEST.MF file for proper configuration.
+Let me know if you'd like step-by-step guidance on repackaging or debugging your JAR file!
+

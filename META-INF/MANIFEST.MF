@@ -1,0 +1,5 @@
+Manifest-Version: 1.0
+Automatic-Module-Name: net.sf.cssbox.pdf2dom
+Build-Jdk-Spec: 1.8
+Created-By: Maven Jar Plugin 3.2.0
+

@@ -1,0 +1,60 @@
+Pdf2DOM 2.0.3 (17 Oct 2022)
+- Skip ignored fonts in font-face definitions
+- Prevent line wrap for text boxes
+
+Pdf2DOM 2.0.2 (12 Oct 2022)
+- Minor fix in font processing
+- Security updates
+
+Pdf2DOM 2.0.1 (19 Oct 2021)
+- Security updates of dependencies
+
+Pdf2DOM 2.0.0 (01 Feb 2021)
+- CSSBox bindings moved to a separate pdf2dom-cssbox project
+- Minor bugfixes
+
+Pdf2DOM 1.9 (03 Jan 2020)
+- Ignore unsupported paths while drawing
+- Dependency updates
+
+Pdf2DOM 1.8 (27 May 2019)
+- Avoid infinite loop when scanning font resources
+- Dependency updates
+
+Pdf2DOM 1.7 (30 Jan 2018)
+- Minor font matching and decoding fixes
+- Dependency updates (CSSBox)
+
+Pdf2DOM 1.6 (24 Jul 2016)
+- Font embedding and extraction support
+- Image extraction support
+- Significantly extended graphics rendering (non-orthogonal lines, patterns, etc.)
+- Text rendering improvements
+(all contributed by M. Abboud)
+
+Pdf2DOM 1.5 (23 Mar 2016)
+- PDF graphics state tracking reworked
+- Many rendering bugs fixed, mainly in colors and line widths
+- Graphics rendering fixed (coordinates)
+- Ported to stable PDFBox 2.0.0
+
+Pdf2DOM 1.4 (6 Nov 2015)
+- Basic graphics support (orthogonal lines and rectangles)
+- Text metrics improvements
+- Diacritic merging
+- Support for rotated pages
+- Ported to PDFBox 2
+
+Pdf2DOM 1.3 (19 Feb 2015)
+- Bidirectional text support (very basic)
+- Dependency updates
+
+Pdf2DOM 1.2 (17 Feb 2014)
+- Converted to Maven
+
+Pdf2DOM 1.1 (5 Dec 2013)
+- Adapted to new CSSBox API (CSSBox 4.3)
+
+Pdf2DOM 1.0 (7 Oct 2011)
+- First public release
+ 

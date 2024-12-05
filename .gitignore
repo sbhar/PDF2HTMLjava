@@ -1,0 +1,10 @@
+/**/bin
+/**/target
+/dependency-reduced-pom.xml
+*~
+.metadata/
+.settings/
+.apt*/
+.project
+.classpath
+.factorypath
