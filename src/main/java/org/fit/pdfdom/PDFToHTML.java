@@ -52,6 +52,7 @@ public class PDFToHTML {
     public String newImgSrcString = "newImage";
 
     public static String inFile ="";
+    public static String outFile ="";
 
     public static void main(String[] args) {
         // Path to the PDF file
@@ -89,9 +90,10 @@ public class PDFToHTML {
         String infile = args[0];
         inFile = infile;
         String outfile;
-        if (args.length > 1 && !args[1].startsWith("-"))
+        if (args.length > 1 && !args[1].startsWith("-")) {
             outfile = args[1];
-        else {
+            outFile = outfile;
+        } else {
             String base = args[0];
             if (base.toLowerCase().endsWith(".pdf"))
                 base = base.substring(0, base.length() - 4);

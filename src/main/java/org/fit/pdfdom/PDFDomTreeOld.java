@@ -710,9 +710,9 @@ if (selectedBorderBottom == null || selectedBorderBottom.isEmpty()) {
           finalHtmlContent = finalHtmlContent.replaceFirst("(?i)<div.*?>", "$0" + firstImgTag + "\n");
         }
 
-        
+        //System.out.println(PDFToHTML.outFile);
 
-        try (FileWriter fileWriter = new FileWriter("output/Output_Responsive.html")) {
+        try (FileWriter fileWriter = new FileWriter("output/"+PDFToHTML.outFile)) {
 
 
           for (String imgTag : imgTagsOthers) {
@@ -779,7 +779,7 @@ if (matcherOthers.find()) {
               "(?i)(<div[^>]*class=\"r\"[^>]*>)(.*?)(</div>)", "$1&nbsp;$3");
 
           fileWriter.write(finalHtmlContent);
-          System.out.println("HTML content successfully saved to Output_Responsive.html");
+          System.out.println("HTML content successfully saved to "+PDFToHTML.outFile);
         } catch (IOException e) {
           System.err.println("Error while writing to file: " + e.getMessage());
         }
