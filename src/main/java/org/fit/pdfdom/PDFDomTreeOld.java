@@ -298,6 +298,9 @@ public class PDFDomTreeOld extends PDFBoxTree {
       StringBuilder imageContentBuilder = new StringBuilder();
       int imgCounter = 1;
       float dataTopValue = 0.0f;
+      float lineYCoordinateOthers = 0.0f;
+      String lineClass = "";
+      String border = "";
 
       while (matcher.find()) {
         String originalImgTag = matcher.group();
@@ -384,6 +387,23 @@ public class PDFDomTreeOld extends PDFBoxTree {
 
       String DivContent = DivContentBuilder.toString();
       String[] DivTags = DivContent.split("\n");
+      String finalBorder = "";
+
+      for (int k = 0; k < DivTags.length; k++) {
+        String divTag = DivTags[k];
+        String dataTopAttr = extractDataTopValue(divTag);
+        //if (isWithinRange(Float.parseFloat(dataTopAttr), lineYCoordinate, 24.9f)) {
+          border = extractBorderBottom(divTag);
+          if (border != null) {
+          break;
+          }
+          //System.out.println("Right Border: "+border);
+        //}
+      }
+
+      if (border != null) {
+        finalBorder = border;
+      }
 
       String bodyTagPattern = "(?i)<body.*?>(.*?)</body>";
       Pattern patternBody = Pattern.compile(bodyTagPattern, Pattern.DOTALL);
@@ -408,7 +428,7 @@ public class PDFDomTreeOld extends PDFBoxTree {
 
         cssStyles.append(
             "<style>.r{color:white;}[class^=\"custom-class-\"]{min-height:16pt}@media(min-width: 1280px){.custom-class-0{margin-top:4pt}.page{border:1px solid blue;width:"
-                + containerWidth + "pt;}}");
+                + containerWidth + "pt;}}"+"");
 
         finalHtmlBuilder.append(
             "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\"/>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>\n<title>PDF Extracted Text</title>\n<script src=\"https://cdn.tailwindcss.com\"></script>\n<style>")
@@ -420,31 +440,36 @@ public class PDFDomTreeOld extends PDFBoxTree {
             .append(styleContent)
             .append(
                 "</head>\n<body>\n<div class=\"mx-auto sm:max-w-screen-sm md:max-w-screen-md lg:max-w-screen-lg xl:max-w-screen-xl relative p-4 my-10 page\">");
-
+        float lineYCoordinate = 0.0f;
         for (int i = 0; i < textLinesParser.size(); i++) {
           TextLine line = textLinesParser.get(i);
-          float lineYCoordinate = line.getYCoordinate();
+          lineYCoordinate = line.getYCoordinate();
           float marginBottom = Math.max(
               line.getMarginBottom((i + 1 < textLinesParser.size()) ? textLinesParser.get(i + 1) : null) - 8.0f, 0.0f);
           float leftPaddingPercent = Math.max((line.getLeftPadding() / containerWidth) * 100, 0);
 
           // Define the minimum and maximum font sizes
-final float MIN_FONT_SIZE = 8f;
-final float MAX_FONT_SIZE = 32f;
+          final float MIN_FONT_SIZE = 8f;
+          final float MAX_FONT_SIZE = 32f;
 
-// Clamp the font size to a range
-float fontSize = line.getFontSize();
-float clampedFontSize = Math.min(MAX_FONT_SIZE, Math.max(fontSize, MIN_FONT_SIZE));
+          // Clamp the font size to a range
+          float fontSize = line.getFontSize();
+          float clampedFontSize = Math.min(MAX_FONT_SIZE, Math.max(fontSize, MIN_FONT_SIZE));
 
-// Generate the inline style
-String inlineStyle = "font-family: " + line.getFontFamily().replace("+", " ") +
-                     "; font-weight: normal; font-size: " + Math.round(clampedFontSize) + "pt; height: auto" +
-                     "; padding-left: " + leftPaddingPercent + "%;";
+          int leftGridSpan = (int) Math.round((leftPaddingPercent / 100) * 12); // Convert percentage to a 12-column
+                                                                                // grid
+          int remainingGridSpan = Math.max(12 - leftGridSpan, 1); // Ensure at least 1 column is left for the text
 
+          // Generate the inline style
+          String inlineStyle = "font-family: " + line.getFontFamily().replace("+", " ") +
+              "; font-weight: normal; font-size: " + Math.round(clampedFontSize) + "pt; height: auto;";
+          // padding-left: " + leftPaddingPercent + "%;";
 
-          // String inlineStyle = "font-family: " + line.getFontFamily().replace("+", " ") +
-          //     "; font-weight: normal; font-size: " + Math.max(line.getFontSize(), 8) + "pt;height: auto"+
-          //     "; padding-left: " + leftPaddingPercent + "%;";
+          // String inlineStyle = "font-family: " + line.getFontFamily().replace("+", " ")
+          // +
+          // "; font-weight: normal; font-size: " + Math.max(line.getFontSize(), 8) +
+          // "pt;height: auto"+
+          // "; padding-left: " + leftPaddingPercent + "%;";
 
           float maxTopValue = Float.MIN_VALUE; // Initialize the highest top value
           int selectedIndex = -1; // Store the index of the selected div
@@ -454,20 +479,26 @@ String inlineStyle = "font-family: " + line.getFontFamily().replace("+", " ") +
           String selectedBorderBottom = null;
           int selectedIndex2 = -1;
 
+
+         
+
           // First Pass: Find the div with the highest top value
           for (int k = 0; k < DivTags.length; k++) {
             String divTag = DivTags[k];
             String dataTopAttr = extractDataTopValue(divTag);
+            
 
             if (dataTopAttr != null && isWithinRange(Float.parseFloat(dataTopAttr), lineYCoordinate, 8.9f)) {
+              //border = extractBorderBottom(divTag);
               float currentTopValue = Float.parseFloat(dataTopAttr); // Parse the current top value
               // Check if maxTopValue contains 'E' (indicating scientific notation)
               String maxTopValueStr = String.valueOf(maxTopValue);
               // if (maxTopValue != (1.4E-45) && currentTopValue > maxTopValue) {
               diff = lineYCoordinate - currentTopValue;
 
-              // System.out.println("data-top: " + dataTopAttr + "---" + "Current:" + currentTopValue + "---" + "Max:"
-              //     + maxTopValue + "---" + "Y Coordinate:" + lineYCoordinate);
+              // System.out.println("data-top: " + dataTopAttr + "---" + "Current:" +
+              // currentTopValue + "---" + "Max:"
+              // + maxTopValue + "---" + "Y Coordinate:" + lineYCoordinate);
               // System.out.println("Index: " + k + " --- " + "diff:" + diff);
               if (lineYCoordinate - currentTopValue < 8.9f && currentTopValue > maxTopValue) {
                 maxTopValue = currentTopValue; // Update maxTopValue
@@ -476,40 +507,54 @@ String inlineStyle = "font-family: " + line.getFontFamily().replace("+", " ") +
                 // selectedBorderBottom = extractBorderBottom(divTag); // Extract the
                 // border-bottom
                 // System.out.println("border bottom: "+selectedBorderBottom);
+                // border = selectedBorderBottom;
                 // selectedIndex2 = i;
               }
 
             }
             if (dataTopAttr != null && isWithinRange(Float.parseFloat(dataTopAttr), lineYCoordinate, 30.9f)) {
-             
-              float currentTopValue = Float.parseFloat(dataTopAttr); // Parse the current top value 
-              
+
+              float currentTopValue = Float.parseFloat(dataTopAttr); // Parse the current top value
+
               // Check if maxTopValue contains 'E' (indicating scientific notation)
               // if (maxTopValue != (1.4E-45) && currentTopValue > maxTopValue) {
               diff2 = lineYCoordinate - currentTopValue;
-              
+
               if (currentTopValue > maxTopValue) {
                 maxTopValue = currentTopValue;
                 selectedBorderBottom = extractBorderBottom(divTag); // Extract the border-bottom
                 //System.out.println("border bottom: " + selectedBorderBottom);
+                // Check if selectedBorderBottom is null
+if (selectedBorderBottom == null || selectedBorderBottom.isEmpty()) {
+  // Assign a concrete value if null or empty
+  border = selectedBorderBottom; // Example concrete value
+  //System.out.println("Correct Border: " + border);
+}
                 selectedIndex2 = i;
               }
-              // System.out.println("data-top: " + dataTopAttr + "---" + "Current:" + currentTopValue + "---" + "Max:"
-              //     + maxTopValue + "---" + "Y Coordinate:" + lineYCoordinate + "---" + "diff:" + diff2+"---" + "selectedIndex2:" + selectedIndex2 );
+              // System.out.println("data-top: " + dataTopAttr + "---" + "Current:" +
+              // currentTopValue + "---" + "Max:"
+              // + maxTopValue + "---" + "Y Coordinate:" + lineYCoordinate + "---" + "diff:" +
+              // diff2+"---" + "selectedIndex2:" + selectedIndex2 );
             }
           }
 
           // // // Apply the background-color from the selected div to inlineStyle, if any
           if ((selectedBackgroundColor != null) && (selectedIndex != -1) && (diff > 0.0)) {
             inlineStyle += " background-color: " + selectedBackgroundColor + "; height:auto;";
-            
+
           }
 
           if (selectedIndex2 == 2) {
+            //if (border != null) {
+            System.out.println("Max:" + maxTopValue + "---" + "Y Coordinate:" + lineYCoordinate + "---" + "diff:" + diff2+"---" + "selectedIndex2:" + selectedIndex2 + " Border: "+finalBorder);
+            //}
 
-           
-              inlineStyle += " border-bottom: " + "1px solid" + ";height:14pt" + ";width:" + line.getLineWidth() + "pt;" + "padding-left:0;margin-left:auto;margin-right:auto;width:fit-content;";
-            
+            lineClass = "div[data-top=\""+ lineYCoordinate + "\"]" + " .grid-cols-12  div:nth-child(2){border-bottom:"+finalBorder +";width:fit-content}";
+
+            inlineStyle += ";height:14pt" + ";"
+                + "padding-left:0;margin-left:auto;margin-right:auto;";
+
           }
 
           // Add the inline style to cssStyles as a dynamic class
@@ -517,30 +562,33 @@ String inlineStyle = "font-family: " + line.getFontFamily().replace("+", " ") +
               .append(i)
               .append(" { ")
               .append(inlineStyle)
-              .append(" }");
+              .append(" }")
+              .append(lineClass);
 
-          finalHtmlBuilder.append("<div class=\"custom-class-").append(i)
-              // .append("\" style=\"")
-              .append("\">").append(line.getText());
+          finalHtmlBuilder.append("<div class=\"custom-class-").append(i).append("\" data-top=\"")
+              .append(lineYCoordinate).append("\">");
+
+          finalHtmlBuilder.append("<div class=\"grid grid-cols-12").append("\">");
 
           for (String imgTag : imageTags) {
             String dataTopAttr = extractDataTopValue(imgTag);
             if (dataTopAttr != null && !dataTopAttr.isEmpty()) {
               try {
-                  dataTopValue = Float.parseFloat(dataTopAttr);
-                  if (isWithinRange(dataTopValue, lineYCoordinate, 35.0f)) {
-                      finalHtmlBuilder.append(imgTag);
-                      break;
-                  }
+                dataTopValue = Float.parseFloat(dataTopAttr);
+                if (isWithinRange(dataTopValue, lineYCoordinate, 35.0f)) {
+                  // finalHtmlBuilder.append(imgTag);
+                  lineYCoordinateOthers = lineYCoordinate;
+                  break;
+                }
               } catch (NumberFormatException e) {
-                  System.err.println("Invalid float value for dataTopAttr: " + dataTopAttr);
-                  // Handle the invalid value as needed, e.g., skip or use a default
+                System.err.println("Invalid float value for dataTopAttr: " + dataTopAttr);
+                // Handle the invalid value as needed, e.g., skip or use a default
               }
-          } else {
-              //System.err.println("dataTopAttr is null or empty");
+            } else {
+              // System.err.println("dataTopAttr is null or empty");
               // Handle the null or empty case as needed, e.g., skip or use a default
-          }
-            
+            } // log.info("Processing tree with image source: " +
+
           }
 
           for (String divTag : DivTags) {
@@ -551,7 +599,18 @@ String inlineStyle = "font-family: " + line.getFontFamily().replace("+", " ") +
             }
           }
 
-          finalHtmlBuilder.append("</div>");
+          // Add the empty column (left padding equivalent)
+          if (leftGridSpan > 0) {
+            finalHtmlBuilder.append("  <div class=\"col-span-").append(leftGridSpan)
+                .append(" bg-transparent\"></div>");
+          }
+
+          // Add the text column
+          finalHtmlBuilder.append("<div class=\"col-span-").append(remainingGridSpan).append(" bg-transparent\">")
+              .append(line.getText())
+              .append("</div>");
+
+          finalHtmlBuilder.append("</div></div>");
         }
 
         String padLeftpc = "@media(max-width:539px){[class^=\"custom-class-\"]{padding-left:0;height:auto}img{position:relative!important;left:0!important;top:0!important;}.page{width:100%;border:none!important}.r{left:0!important;width:94%!important;}}@media(max-width:1280px){.r{display:none;}}</style>";
@@ -617,17 +676,95 @@ String inlineStyle = "font-family: " + line.getFontFamily().replace("+", " ") +
 
         // Update the final HTML content with the modifications
         finalHtmlContent = modifiedContent3.toString();
+        String firstImgTag = null;
+        boolean imgTagInserted = false; // To track if imgTag has been inserted
+        List<String> imgTagsOthers = new ArrayList<>();
 
         // Check for missing <img> tags and add them at the top of <body> if any are
         // missing
+        // First pass: Insert all other imgTags after </div></div>
         for (String imgTag : imageTags) {
           if (!finalHtmlContent.contains(imgTag)) {
-            finalHtmlContent = finalHtmlContent.replaceFirst("(?i)<div.*?>",
-                "$0" + imgTag + "\n");
+            if (!imgTagInserted) {
+              // Just skip the first imgTag here and save it for later
+              firstImgTag = imgTag;
+              imgTagInserted = true;
+            } else {
+              imgTagsOthers.add(imgTag);
+            }
           }
         }
 
+        // Now, handle the insertion of the other imgTags (after </div></div>)
+        // for (String imgTag : imgTagsOthers) {
+        // //if (!finalHtmlContent.contains(imgTag)) {
+        // finalHtmlContent = finalHtmlContent.replaceAll("(?i)</div></div>",
+        // "</div></div>\n" + imgTag + "\n");
+        // //}
+        // }
+
+        
+        // After the other images are inserted, now insert the first imgTag inside the
+        // first <div> tag
+        if (firstImgTag != null) {
+          finalHtmlContent = finalHtmlContent.replaceFirst("(?i)<div.*?>", "$0" + firstImgTag + "\n");
+        }
+
+        
+
         try (FileWriter fileWriter = new FileWriter("output/Output_Responsive.html")) {
+
+
+          for (String imgTag : imgTagsOthers) {
+            String dataTopAttr = extractDataTopValue(imgTag);
+            if (dataTopAttr != null && !dataTopAttr.isEmpty()) {
+              try {
+                dataTopValue = Float.parseFloat(dataTopAttr);
+                // System.out
+                //     .println("dataTopValue: " + dataTopValue + " --- " + "lineYCoordinate: " + lineYCoordinateOthers);
+                // Check if the dataTopValue falls within the range
+                if (isWithinRange(dataTopValue, lineYCoordinateOthers, 24.0f)) {
+                  // Locate the appropriate div with the corresponding data-top value
+                  // Step 1: Extract the inner HTML of the div with the matching data-top
+                  // Step 1: Update regex to match the div with data-top and capture everything inside it
+                  String divRegex2 = "(?i)(<div[^>]*class=\"custom-class-[^\"]*\"[^>]*data-top=\"" + lineYCoordinateOthers + "\"[^>]*>)(.*?<div class=\"grid grid-cols-12\">(.*?)</div>.*?)</div>";
+
+
+
+// Use Matcher to find the div with the corresponding data-top value
+Matcher matcherOthers = Pattern.compile(divRegex2, Pattern.DOTALL).matcher(finalHtmlContent);
+
+if (matcherOthers.find()) {
+    // Step 2: Extract the entire div content (including the opening and closing tags)
+    String divContent = matcherOthers.group(1); // The entire content of the div, including inner HTML
+
+    // Step 3: Log the div content to verify
+    //System.out.println("Div Content: " + divContent);
+
+    String divInnerContent = matcherOthers.group(2);  
+    
+
+    // Step 4: Find where to insert the imgTag - this is where you manually insert the image tag
+    String updatedDiv = divContent + divInnerContent + "\n" + imgTag + "\n"; // Append the imgTag before the closing div tag
+    //System.out.println("updatedDiv: " + updatedDiv);
+
+    // Step 5: Replace the original div in the final HTML content with the updated div
+    finalHtmlContent = finalHtmlContent.replaceFirst(divRegex2, updatedDiv);
+}
+
+  
+                  break; // Assuming only one imgTag needs to be added to the matching div
+                }
+              } catch (NumberFormatException e) {
+                System.err.println("Invalid float value for dataTopAttr: " + dataTopAttr);
+                // Handle the invalid value as needed, e.g., skip or use a default
+              }
+            } else {
+              // System.err.println("dataTopAttr is null or empty");
+              // Handle the null or empty case as needed, e.g., skip or use a default
+            }
+  
+          }
           finalHtmlContent = finalHtmlContent.replaceAll(
               "(?i)<img([^>]*?)style\\s*=\\s*\"([^\"]*?)position\\s*:\\s*absolute([^>]*?)\"", "<img$1style=\"$2$3\"");
           finalHtmlContent = finalHtmlContent.replaceAll(
