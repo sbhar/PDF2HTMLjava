@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consistent Layout</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px; /* Centralized boundary */
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .header, .content, .footer {
+            background-color: #f4f4f4;
+            color: #333;
+            text-align: center;
+            padding: 15px;
+            border: 1px solid #ddd; /* Optional for a clear boundary */
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .footer {
+            background-color: #333;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px; /* Reduce padding on smaller devices */
+            }
+
+            .header, .content, .footer {
+                padding: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header, .content, .footer {
+                font-size: 14px; /* Smaller font for narrow screens */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">Header</div>
+        <div class="content">Content</div>
+        <div class="footer">Footer &copy; 2024</div>
+    </div>
+</body>
+</html>

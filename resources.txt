@@ -1,0 +1,3 @@
+maven-compiler-plugin for pdfbox-2.0.27 is 3.6.0
+
+https://maven.redpill-linpro.com/nexus/content/groups/public/org/apache/pdfbox/pdfbox-parent/2.0.27/pdfbox-parent-2.0.27.pom

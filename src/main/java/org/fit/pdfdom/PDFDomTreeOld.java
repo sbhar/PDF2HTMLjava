@@ -19,9 +19,16 @@ import javax.imageio.ImageIO;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.text.TextPosition;
+import org.apache.xerces.parsers.DOMParser;
 import org.fit.pdfdom.ConcretePDFBoxTree.TextLine;
 import org.fit.pdfdom.resource.HtmlResource;
 import org.fit.pdfdom.resource.ImageResource;
@@ -31,11 +38,17 @@ import org.w3c.dom.DOMException;
 import org.w3c.dom.Document;
 import org.w3c.dom.DocumentType;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.w3c.dom.Text;
 import org.w3c.dom.bootstrap.DOMImplementationRegistry;
 import org.w3c.dom.ls.DOMImplementationLS;
 import org.w3c.dom.ls.LSOutput;
 import org.w3c.dom.ls.LSSerializer;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.helpers.DefaultHandler;
+
 import java.util.regex.Matcher;
 import java.awt.image.BufferedImage;
 
@@ -80,8 +93,10 @@ public class PDFDomTreeOld extends PDFBoxTree {
   public float PAGE_WIDTH = 595.276f;
   public float containerWidth = PAGE_WIDTH;
   private StringBuilder htmlOutput2;
+  List<String> liner = new ArrayList<>();
 
   public List<TextLine> textLinesParser;
+  public String textLiner;
 
   public PDFDomTreeOld() throws IOException, ParserConfigurationException {
     init();
@@ -236,52 +251,149 @@ public class PDFDomTreeOld extends PDFBoxTree {
 
   public void writeText(PDDocument doc, Writer outputStream) throws IOException {
     try {
-      // System.out.println(inFile);
-      PDDocument document = null;
-      document = PDDocument.load(new File(PDFToHTML.inFile));
+      // Load the PDF document
+      // PDDocument document = PDDocument.load(new File(PDFToHTML.inFile));
       createDOM(doc);
-      // System.out.println("img content @pdfdomtree: " + nimgsrcstring);
-      nimgsrcstring = nimgsrcstring.replace("<?xml version=\"1.0\" encoding=\"UTF-16\"?>", "");
-      // System.out.println("img content @pdfdomtree: " + nimgsrcstring);
-      // System.out.println("testHtmlOutput @pdfdomtree: " + testHtmlOutput);
+
+      // Clean up nimgsrcstring if necessary
+      //nimgsrcstring = nimgsrcstring.replace("<?xml version=\"1.0\" encoding=\"UTF-16\"?>", "");
+
       // Convert the testHtmlOutput string into a DOM Document
-      Document htmlDocument = parseHtmlToDom(testHtmlOutput.replaceAll("<\\?xml[^>]*>", ""));
+      //Document htmlDocument = parseHtmlToDom(testHtmlOutput.replaceAll("<\\?xml[^>]*>", ""));
 
-      // // String testHtmlOutput = "<!DOCTYPE
-      // html><html><head><metacharset=\"UTF-8\"/><title>Sample
-      // Page</title></head><body><h1>Welcome to theSample Page</h1><p>This is a dummy
-      // paragraph for testing.</p><ul><li>Item1</li><li>Item 2</li><li>Item
-      // 3</li></ul></body></html>";
+      // // Sanitization step: filter out invalid XML characters
+      //String sanitizedHtml = sanitizeHtmlContent(testHtmlOutput);
 
-      // // Convert the testHtmlOutput string into a DOM Document
-      // Document htmlDocument = parseHtmlToDom(testHtmlOutput);
+      // // Create the DOM for the sanitized content
+      // Document sanitizedDocument = parseHtmlToDom(sanitizedHtml);
 
-      DOMImplementationRegistry registry = DOMImplementationRegistry.newInstance();
-      DOMImplementationLS impl = (DOMImplementationLS) registry.getDOMImplementation("LS");
-      LSSerializer writer = impl.createLSSerializer();
-      LSOutput output = impl.createLSOutput();
-      writer.getDomConfig().setParameter("format-pretty-print",
-          Boolean.valueOf(true));
-      output.setCharacterStream(outputStream);
-      // createDOM(doc);
+      // Initialize a lenient DOM parser
+      DOMParser parser = new DOMParser();
+      parser.setFeature("http://apache.org/xml/features/nonvalidating/load-dtd-grammar", false);
+      parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+
+      // Override the default error handler to ignore errors
+      parser.setErrorHandler(new DefaultHandler() {
+        @Override
+        public void error(SAXParseException e) throws SAXException {
+          // Log or handle invalid characters here, or ignore them
+          System.err.println("Ignored parsing error: " + e.getMessage());
+        }
+      });
+
+      // Your method to create the DOM from the document
       createDOM(doc);
-      FullhtmlContentOld = pdDocumentToHtmlString(doc);
-      // try (FileWriter fileWriter = new FileWriter("FullhtmlContentOld.html")) {
-      // fileWriter.write(FullhtmlContentOld);
-      // System.out.println("Html content successfully saved to
-      // FullhtmlContentOld.html");
-      // } catch (IOException e) {
-      // System.err.println("Error while writing to file: " + e.getMessage());
-      // }
-      writer.write(getDocument(), output);
-      // writer.write(htmlDocument, output); // Write the DOM content to the
-      // outputstream
-      // Also write to an HTML file
-      saveHtmlContentToFile(doc);
+
+      // Get the raw HTML from the DOM as a string (using StringWriter)
+      String htmlContent = convertDOMToString(getDocument());
+
+      // Write sanitized or lenient content to the output stream
+      outputStream.write(htmlContent);
+      saveHtmlContentToFile2(htmlContent, textLinesParser);
+      //htmlContent = htmlContent.replace("�", "&nbsp;");
+      htmlContent = htmlContent.replaceAll("[^\\x20-\\x7E]", "");
+      try (BufferedWriter writer = new BufferedWriter(new FileWriter("fileName.html"))) {
+        writer.write(htmlContent);
+        System.out.println("HTML content saved to fileName.html");
+    } catch (IOException e) {
+        throw new IOException("Error saving content to file", e);
+    }
 
     } catch (Exception e) {
       throw new IOException("Error: cannot initialize the DOM serializer", e);
     }
+  }
+
+  // Convert DOM to String (you can reuse your previous DOM serializer here)
+  private String convertDOMToString(Document doc) throws IOException {
+    try {
+      // Create a TransformerFactory instance
+      TransformerFactory tf = TransformerFactory.newInstance();
+      Transformer transformer = tf.newTransformer();
+
+      // Optionally, set output properties (e.g., indentation)
+      transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+
+      // Transform the DOM to a string using DOMSource and StreamResult
+      StringWriter writer = new StringWriter();
+      transformer.transform(new DOMSource(doc), new StreamResult(writer));
+
+      return writer.toString();
+    } catch (Exception e) {
+      throw new IOException("Error during DOM to String conversion", e);
+    }
+  }
+
+  // Helper method to sanitize invalid XML characters
+  // Sanitize the DOM document to remove invalid XML characters
+  private void sanitizeDocument(Document document) {
+    sanitizeNode(document.getDocumentElement());
+  }
+
+  // Helper method to sanitize invalid XML characters
+  private String sanitizeForXml(String input) {
+    if (input == null) {
+      return null;
+    }
+    // Replace any invalid XML characters with an empty string
+    return input.replaceAll("[^\\x09\\x0A\\x0D\\x20-\\uD7FF\\uE000-\\uFFFD\\u10000-\\u10FFFF]", "");
+  }
+
+  // Helper method to sanitize HTML content by removing invalid XML characters
+  private String sanitizeHtmlContent(String input) {
+    // This pattern matches characters that are invalid in XML (control characters,
+    // etc.)
+    String sanitized = input.replaceAll("[^\\x20-\\x7E\\xA0-\\uD7FF\\uE000-\\uFFFD]", "");
+    return sanitized;
+  }
+
+  // Recursively sanitize nodes in the DOM tree (modifies nodes in place)
+  private void sanitizeNode(Node node) {
+    if (node.getNodeType() == Node.TEXT_NODE) {
+      // Sanitize the text content of the node using the updated
+      // stripNonValidXMLCharacters method
+      String sanitizedText = stripNonValidXMLCharacters(node.getNodeValue());
+      node.setNodeValue(sanitizedText); // Modify the node's value in place.
+    } else if (node.getNodeType() == Node.ATTRIBUTE_NODE) {
+      // Sanitize attribute values
+      String sanitizedValue = stripNonValidXMLCharacters(node.getNodeValue());
+      node.setNodeValue(sanitizedValue); // Modify the attribute value in place.
+    }
+
+    // Process child nodes recursively
+    NodeList children = node.getChildNodes();
+    for (int i = 0; i < children.getLength(); i++) {
+      sanitizeNode(children.item(i)); // Recursive sanitization for child nodes
+    }
+  }
+
+  /**
+   * Removes invalid XML characters from the input string, including Unicode 0x18.
+   * 
+   * @param in the input string
+   * @return the sanitized string
+   */
+  private String stripNonValidXMLCharacters(String in) {
+    if (in == null || in.isEmpty())
+      return ""; // Vacancy test.
+
+    // Replace the invalid character 0x18 (Unicode) specifically
+    in = in.replace("\u0018", ""); // This specifically targets Unicode character 0x18.
+
+    StringBuilder out = new StringBuilder(); // Used to hold the output.
+    char current; // Used to reference the current character.
+
+    // Iterate through the input string and keep valid XML characters
+    for (int i = 0; i < in.length(); i++) {
+      current = in.charAt(i); // No IndexOutOfBoundsException will occur here.
+      if ((current == 0x9) || (current == 0xA) || (current == 0xD) ||
+          ((current >= 0x20) && (current <= 0xD7FF)) ||
+          ((current >= 0xE000) && (current <= 0xFFFD)) ||
+          ((current >= 0x10000) && (current <= 0x10FFFF))) {
+        out.append(current); // Valid XML characters are added to the output.
+      }
+    }
+    return out.toString();
   }
 
   public void saveHtmlContentToFile(PDDocument doc) throws IOException {
@@ -392,13 +504,13 @@ public class PDFDomTreeOld extends PDFBoxTree {
       for (int k = 0; k < DivTags.length; k++) {
         String divTag = DivTags[k];
         String dataTopAttr = extractDataTopValue(divTag);
-        //if (isWithinRange(Float.parseFloat(dataTopAttr), lineYCoordinate, 24.9f)) {
-          border = extractBorderBottom(divTag);
-          if (border != null) {
+        // if (isWithinRange(Float.parseFloat(dataTopAttr), lineYCoordinate, 24.9f)) {
+        border = extractBorderBottom(divTag);
+        if (border != null) {
           break;
-          }
-          //System.out.println("Right Border: "+border);
-        //}
+        }
+        // System.out.println("Right Border: "+border);
+        // }
       }
 
       if (border != null) {
@@ -428,7 +540,7 @@ public class PDFDomTreeOld extends PDFBoxTree {
 
         cssStyles.append(
             "<style>.r{color:white;}[class^=\"custom-class-\"]{min-height:16pt}@media(min-width: 1280px){.custom-class-0{margin-top:4pt}.page{border:1px solid blue;width:"
-                + containerWidth + "pt;}}"+"");
+                + containerWidth + "pt;}}" + "");
 
         finalHtmlBuilder.append(
             "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\"/>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>\n<title>PDF Extracted Text</title>\n<script src=\"https://cdn.tailwindcss.com\"></script>\n<style>")
@@ -479,17 +591,13 @@ public class PDFDomTreeOld extends PDFBoxTree {
           String selectedBorderBottom = null;
           int selectedIndex2 = -1;
 
-
-         
-
           // First Pass: Find the div with the highest top value
           for (int k = 0; k < DivTags.length; k++) {
             String divTag = DivTags[k];
             String dataTopAttr = extractDataTopValue(divTag);
-            
 
             if (dataTopAttr != null && isWithinRange(Float.parseFloat(dataTopAttr), lineYCoordinate, 8.9f)) {
-              //border = extractBorderBottom(divTag);
+              // border = extractBorderBottom(divTag);
               float currentTopValue = Float.parseFloat(dataTopAttr); // Parse the current top value
               // Check if maxTopValue contains 'E' (indicating scientific notation)
               String maxTopValueStr = String.valueOf(maxTopValue);
@@ -523,13 +631,13 @@ public class PDFDomTreeOld extends PDFBoxTree {
               if (currentTopValue > maxTopValue) {
                 maxTopValue = currentTopValue;
                 selectedBorderBottom = extractBorderBottom(divTag); // Extract the border-bottom
-                //System.out.println("border bottom: " + selectedBorderBottom);
+                // System.out.println("border bottom: " + selectedBorderBottom);
                 // Check if selectedBorderBottom is null
-if (selectedBorderBottom == null || selectedBorderBottom.isEmpty()) {
-  // Assign a concrete value if null or empty
-  border = selectedBorderBottom; // Example concrete value
-  //System.out.println("Correct Border: " + border);
-}
+                if (selectedBorderBottom == null || selectedBorderBottom.isEmpty()) {
+                  // Assign a concrete value if null or empty
+                  border = selectedBorderBottom; // Example concrete value
+                  // System.out.println("Correct Border: " + border);
+                }
                 selectedIndex2 = i;
               }
               // System.out.println("data-top: " + dataTopAttr + "---" + "Current:" +
@@ -546,11 +654,14 @@ if (selectedBorderBottom == null || selectedBorderBottom.isEmpty()) {
           }
 
           if (selectedIndex2 == 2) {
-            //if (border != null) {
-            System.out.println("Max:" + maxTopValue + "---" + "Y Coordinate:" + lineYCoordinate + "---" + "diff:" + diff2+"---" + "selectedIndex2:" + selectedIndex2 + " Border: "+finalBorder);
-            //}
+            // if (border != null) {
+            // System.out.println("Max:" + maxTopValue + "---" + "Y Coordinate:" +
+            // lineYCoordinate + "---" + "diff:" + diff2+"---" + "selectedIndex2:" +
+            // selectedIndex2 + " Border: "+finalBorder);
+            // }
 
-            lineClass = "div[data-top=\""+ lineYCoordinate + "\"]" + " .grid-cols-12  div:nth-child(2){border-bottom:"+finalBorder +";width:fit-content}";
+            lineClass = "div[data-top=\"" + lineYCoordinate + "\"]" + " .grid-cols-12  div:nth-child(2){border-bottom:"
+                + finalBorder + ";width:fit-content}";
 
             inlineStyle += ";height:14pt" + ";"
                 + "padding-left:0;margin-left:auto;margin-right:auto;";
@@ -703,17 +814,15 @@ if (selectedBorderBottom == null || selectedBorderBottom.isEmpty()) {
         // //}
         // }
 
-        
         // After the other images are inserted, now insert the first imgTag inside the
         // first <div> tag
         if (firstImgTag != null) {
           finalHtmlContent = finalHtmlContent.replaceFirst("(?i)<div.*?>", "$0" + firstImgTag + "\n");
         }
 
-        //System.out.println(PDFToHTML.outFile);
+        // System.out.println(PDFToHTML.outFile);
 
-        try (FileWriter fileWriter = new FileWriter("output/"+PDFToHTML.outFile)) {
-
+        try (FileWriter fileWriter = new FileWriter("output/" + PDFToHTML.outFile)) {
 
           for (String imgTag : imgTagsOthers) {
             String dataTopAttr = extractDataTopValue(imgTag);
@@ -721,38 +830,41 @@ if (selectedBorderBottom == null || selectedBorderBottom.isEmpty()) {
               try {
                 dataTopValue = Float.parseFloat(dataTopAttr);
                 // System.out
-                //     .println("dataTopValue: " + dataTopValue + " --- " + "lineYCoordinate: " + lineYCoordinateOthers);
+                // .println("dataTopValue: " + dataTopValue + " --- " + "lineYCoordinate: " +
+                // lineYCoordinateOthers);
                 // Check if the dataTopValue falls within the range
                 if (isWithinRange(dataTopValue, lineYCoordinateOthers, 24.0f)) {
                   // Locate the appropriate div with the corresponding data-top value
                   // Step 1: Extract the inner HTML of the div with the matching data-top
-                  // Step 1: Update regex to match the div with data-top and capture everything inside it
-                  String divRegex2 = "(?i)(<div[^>]*class=\"custom-class-[^\"]*\"[^>]*data-top=\"" + lineYCoordinateOthers + "\"[^>]*>)(.*?<div class=\"grid grid-cols-12\">(.*?)</div>.*?)</div>";
+                  // Step 1: Update regex to match the div with data-top and capture everything
+                  // inside it
+                  String divRegex2 = "(?i)(<div[^>]*class=\"custom-class-[^\"]*\"[^>]*data-top=\""
+                      + lineYCoordinateOthers + "\"[^>]*>)(.*?<div class=\"grid grid-cols-12\">(.*?)</div>.*?)</div>";
 
+                  // Use Matcher to find the div with the corresponding data-top value
+                  Matcher matcherOthers = Pattern.compile(divRegex2, Pattern.DOTALL).matcher(finalHtmlContent);
 
+                  if (matcherOthers.find()) {
+                    // Step 2: Extract the entire div content (including the opening and closing
+                    // tags)
+                    String divContent = matcherOthers.group(1); // The entire content of the div, including inner HTML
 
-// Use Matcher to find the div with the corresponding data-top value
-Matcher matcherOthers = Pattern.compile(divRegex2, Pattern.DOTALL).matcher(finalHtmlContent);
+                    // Step 3: Log the div content to verify
+                    // System.out.println("Div Content: " + divContent);
 
-if (matcherOthers.find()) {
-    // Step 2: Extract the entire div content (including the opening and closing tags)
-    String divContent = matcherOthers.group(1); // The entire content of the div, including inner HTML
+                    String divInnerContent = matcherOthers.group(2);
 
-    // Step 3: Log the div content to verify
-    //System.out.println("Div Content: " + divContent);
+                    // Step 4: Find where to insert the imgTag - this is where you manually insert
+                    // the image tag
+                    String updatedDiv = divContent + divInnerContent + "\n" + imgTag + "\n"; // Append the imgTag before
+                                                                                             // the closing div tag
+                    // System.out.println("updatedDiv: " + updatedDiv);
 
-    String divInnerContent = matcherOthers.group(2);  
-    
+                    // Step 5: Replace the original div in the final HTML content with the updated
+                    // div
+                    finalHtmlContent = finalHtmlContent.replaceFirst(divRegex2, updatedDiv);
+                  }
 
-    // Step 4: Find where to insert the imgTag - this is where you manually insert the image tag
-    String updatedDiv = divContent + divInnerContent + "\n" + imgTag + "\n"; // Append the imgTag before the closing div tag
-    //System.out.println("updatedDiv: " + updatedDiv);
-
-    // Step 5: Replace the original div in the final HTML content with the updated div
-    finalHtmlContent = finalHtmlContent.replaceFirst(divRegex2, updatedDiv);
-}
-
-  
                   break; // Assuming only one imgTag needs to be added to the matching div
                 }
               } catch (NumberFormatException e) {
@@ -763,7 +875,7 @@ if (matcherOthers.find()) {
               // System.err.println("dataTopAttr is null or empty");
               // Handle the null or empty case as needed, e.g., skip or use a default
             }
-  
+
           }
           finalHtmlContent = finalHtmlContent.replaceAll(
               "(?i)<img([^>]*?)style\\s*=\\s*\"([^\"]*?)position\\s*:\\s*absolute([^>]*?)\"", "<img$1style=\"$2$3\"");
@@ -779,7 +891,7 @@ if (matcherOthers.find()) {
               "(?i)(<div[^>]*class=\"r\"[^>]*>)(.*?)(</div>)", "$1&nbsp;$3");
 
           fileWriter.write(finalHtmlContent);
-          System.out.println("HTML content successfully saved to "+PDFToHTML.outFile);
+          System.out.println("HTML content successfully saved to " + PDFToHTML.outFile);
         } catch (IOException e) {
           System.err.println("Error while writing to file: " + e.getMessage());
         }
@@ -794,6 +906,515 @@ if (matcherOthers.find()) {
           System.err.println("Error closing PDF document: " + e.getMessage());
         }
       }
+    }
+  }
+
+  public void saveHtmlContentToFile2(String fullHtmlContent, List<TextLine> textLines) throws IOException {
+    try {
+      // createDOM(doc);
+
+      // String fullHtmlContent = pdDocumentToHtmlString(doc);
+      fullHtmlContent = fullHtmlContent.replace("<?xml version=\"1.0\" encoding=\"UTF-16\"?>", "");
+
+      String imgTagPattern = "<img[^>]*>";
+      Pattern pattern = Pattern.compile(imgTagPattern);
+      Matcher matcher = pattern.matcher(fullHtmlContent);
+
+      StringBuilder imageContentBuilder = new StringBuilder();
+      int imgCounter = 1;
+      float dataTopValue = 0.0f;
+      float lineYCoordinateOthers = 0.0f;
+      String lineClass = "";
+      String border = "";
+
+      while (matcher.find()) {
+        String originalImgTag = matcher.group();
+
+        // Extract the `top` value
+        Pattern topPattern = Pattern.compile("style=\"[^\"]*top:\\s*([\\d\\.]+)pt;[^\"]*\"");
+        Matcher topMatcher = topPattern.matcher(originalImgTag);
+        if (topMatcher.find()) {
+          String topValueStr = topMatcher.group(1);
+          try {
+            dataTopValue = Float.parseFloat(topValueStr);
+          } catch (NumberFormatException e) {
+            System.err.println("Error parsing top value: " + topValueStr);
+          }
+        }
+
+        // Extract the `left` value
+        float leftValue = 0.0f;
+        Pattern leftPattern = Pattern.compile("style=\"[^\"]*left:\\s*([\\d\\.]+)pt;[^\"]*\"");
+        Matcher leftMatcher = leftPattern.matcher(originalImgTag);
+        if (leftMatcher.find()) {
+          String leftValueStr = leftMatcher.group(1);
+          try {
+            leftValue = Float.parseFloat(leftValueStr);
+          } catch (NumberFormatException e) {
+            System.err.println("Error parsing left value: " + leftValueStr);
+          }
+        }
+
+        // Determine alignment based on `leftValue` and `containerWidth`
+        String alignmentClass = ""; // Tailwind classes or inline styles
+        if (leftValue > containerWidth / 2) {
+          alignmentClass = "ml-0 md:ml-auto"; // Right-aligned (Tailwind class)
+        } else if (Math.abs(leftValue - containerWidth / 2) <= 50) {
+          alignmentClass = "mx-auto"; // Center-aligned (Tailwind class)
+        }
+
+        // Append `class` or `style` with alignment
+        if (originalImgTag.contains("class=")) {
+          String modifiedImgTag = originalImgTag.replaceFirst("class=\"([^\"]*)\"",
+              "class=\"$1 img" + imgCounter + " " + alignmentClass + "\" data-top=\"" + dataTopValue + "\"");
+          imageContentBuilder.append(modifiedImgTag).append("\n");
+        } else {
+          String modifiedImgTag = originalImgTag.replaceFirst("<img",
+              "<img class=\"img" + imgCounter + " " + alignmentClass + "\" data-top=\"" + dataTopValue + "\"");
+          imageContentBuilder.append(modifiedImgTag).append("\n");
+        }
+
+        imgCounter++;
+      }
+
+      String imageContent = imageContentBuilder.toString();
+      imageContent = imageContent.replace("<?xml version=\"1.0\" encoding=\"UTF-16\"?>", "");
+      String[] imageTags = imageContent.split("\n");
+
+      // Extract <div> tags with class="r" and content "&nbsp;"
+      String divPattern = "(?i)<div[^>]*class=\"r\"[^>]*>.*?</div>";
+
+      // System.out.println(FullhtmlContentOld);
+
+      Pattern divRegex = Pattern.compile(divPattern, Pattern.DOTALL);
+      Matcher divMatcher = divRegex.matcher(FullhtmlContentOld);
+
+      StringBuilder DivContentBuilder = new StringBuilder();
+
+      while (divMatcher.find()) {
+        String originalDivTag = divMatcher.group();
+
+        Pattern topPattern = Pattern.compile("style=\"[^\"]*top:\\s*([\\d\\.]+)pt;[^\"]*\"");
+        Matcher topMatcher = topPattern.matcher(originalDivTag);
+        // float dataTopValue = 0.0f;
+        if (topMatcher.find()) {
+          String topValueStr = topMatcher.group(1);
+          try {
+            dataTopValue = Float.parseFloat(topValueStr);
+          } catch (NumberFormatException e) {
+            System.err.println("Error parsing top value: " + topValueStr);
+          }
+        }
+
+        String modifiedDivTag = originalDivTag.replaceFirst("(<div[^>]*)>", "$1 data-top=\"" + dataTopValue + "\">");
+        DivContentBuilder.append(modifiedDivTag).append("\n");
+      }
+
+      String DivContent = DivContentBuilder.toString();
+      String[] DivTags = DivContent.split("\n");
+      String finalBorder = "";
+
+      for (int k = 0; k < DivTags.length; k++) {
+        String divTag = DivTags[k];
+        String dataTopAttr = extractDataTopValue(divTag);
+        // if (isWithinRange(Float.parseFloat(dataTopAttr), lineYCoordinate, 24.9f)) {
+        border = extractBorderBottom(divTag);
+        if (border != null) {
+          break;
+        }
+        // System.out.println("Right Border: "+border);
+        // }
+      }
+
+      if (border != null) {
+        finalBorder = border;
+      }
+
+      String bodyTagPattern = "(?i)<body.*?>(.*?)</body>";
+      Pattern patternBody = Pattern.compile(bodyTagPattern, Pattern.DOTALL);
+      Matcher matcherBody = patternBody.matcher(fullHtmlContent);
+
+      if (matcherBody.find()) {
+        String bodyContent = matcherBody.group(1);
+
+        String styleTagPattern = "<style[^>]*>.*?</style>";
+        Pattern patternStyle = Pattern.compile(styleTagPattern, Pattern.DOTALL);
+        Matcher matcherStyle = patternStyle.matcher(fullHtmlContent);
+
+        StringBuilder styleContentBuilder = new StringBuilder();
+        while (matcherStyle.find()) {
+          styleContentBuilder.append(matcherStyle.group()).append("\n");
+        }
+
+        String styleContent = styleContentBuilder.toString();
+        StringBuilder finalHtmlBuilder = new StringBuilder();
+
+        StringBuilder cssStyles = new StringBuilder("");
+
+        cssStyles.append(
+            "<style>.r{color:white;}[class^=\"custom-class-\"]{min-height:16pt}@media(min-width: 1280px){.custom-class-0{margin-top:4pt}.page{border:1px solid blue;width:"
+                + containerWidth + "pt;}}" + "");
+
+        //System.out.println("Create Font Faces: "+createFontFaces());
+
+        finalHtmlBuilder.append(
+            "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\"/>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>\n<title>PDF Extracted Text</title>\n<script src=\"https://cdn.tailwindcss.com\"></script>\n<style>")
+            .append(createFontFaces())
+            .append(
+                "@media(min-width: 1280px){.r{display:block}.custom-class-0{margin-top:4pt}.page{border:1px solid blue;width:"
+                    + containerWidth + "pt;}}")
+            .append("</style>")
+            .append(styleContent)
+            .append(
+                "</head>\n<body>\n<div class=\"mx-auto sm:max-w-screen-sm md:max-w-screen-md lg:max-w-screen-lg xl:max-w-screen-xl relative p-4 my-10 page\">");
+        float lineYCoordinate = 0.0f;
+        for (int i = 0; i < textLinesParser.size(); i++) {
+          TextLine line = textLinesParser.get(i);
+          lineYCoordinate = line.getYCoordinate();
+          float marginBottom = Math.max(
+              line.getMarginBottom((i + 1 < textLinesParser.size()) ? textLinesParser.get(i + 1) : null) - 8.0f, 0.0f);
+          float leftPaddingPercent = Math.max((line.getLeftPadding() / containerWidth) * 100, 0);
+
+          // Define the minimum and maximum font sizes
+          final float MIN_FONT_SIZE = 8f;
+          final float MAX_FONT_SIZE = 32f;
+
+          // Clamp the font size to a range
+          float fontSize = line.getFontSize();
+          float clampedFontSize = Math.min(MAX_FONT_SIZE, Math.max(fontSize, MIN_FONT_SIZE));
+
+          int leftGridSpan = (int) Math.round((leftPaddingPercent / 100) * 12); // Convert percentage to a 12-column
+                                                                                // grid
+          int remainingGridSpan = Math.max(12 - leftGridSpan, 1); // Ensure at least 1 column is left for the text
+
+          //System.out.println("Line get font family: "+line.getFontFamily());
+          // Generate the inline style
+          String inlineStyle = "font-family: " + line.getFontFamily().replace("+", " ") +
+              "; font-weight: normal; font-size: " + Math.round(clampedFontSize) + "pt; height: auto;";
+          // padding-left: " + leftPaddingPercent + "%;";
+
+          // String inlineStyle = "font-family: " + line.getFontFamily().replace("+", " ")
+          // +
+          // "; font-weight: normal; font-size: " + Math.max(line.getFontSize(), 8) +
+          // "pt;height: auto"+
+          // "; padding-left: " + leftPaddingPercent + "%;";
+
+          float maxTopValue = Float.MIN_VALUE; // Initialize the highest top value
+          int selectedIndex = -1; // Store the index of the selected div
+          String selectedBackgroundColor = null; // To store the background-color of the selected div
+          float diff = Float.MIN_VALUE;
+          float diff2 = Float.MIN_VALUE;
+          String selectedBorderBottom = null;
+          int selectedIndex2 = -1;
+
+          // First Pass: Find the div with the highest top value
+          for (int k = 0; k < DivTags.length; k++) {
+            String divTag = DivTags[k];
+            String dataTopAttr = extractDataTopValue(divTag);
+
+            if (dataTopAttr != null && isWithinRange(Float.parseFloat(dataTopAttr), lineYCoordinate, 8.9f)) {
+              // border = extractBorderBottom(divTag);
+              float currentTopValue = Float.parseFloat(dataTopAttr); // Parse the current top value
+              // Check if maxTopValue contains 'E' (indicating scientific notation)
+              String maxTopValueStr = String.valueOf(maxTopValue);
+              // if (maxTopValue != (1.4E-45) && currentTopValue > maxTopValue) {
+              diff = lineYCoordinate - currentTopValue;
+
+              // System.out.println("data-top: " + dataTopAttr + "---" + "Current:" +
+              // currentTopValue + "---" + "Max:"
+              // + maxTopValue + "---" + "Y Coordinate:" + lineYCoordinate);
+              // System.out.println("Index: " + k + " --- " + "diff:" + diff);
+              if (lineYCoordinate - currentTopValue < 8.9f && currentTopValue > maxTopValue) {
+                maxTopValue = currentTopValue; // Update maxTopValue
+                selectedIndex = i + 1; // Store the index of the selected div
+                selectedBackgroundColor = extractBackgroundColor(divTag); // Extract the background-color
+                // selectedBorderBottom = extractBorderBottom(divTag); // Extract the
+                // border-bottom
+                // System.out.println("border bottom: "+selectedBorderBottom);
+                // border = selectedBorderBottom;
+                // selectedIndex2 = i;
+              }
+
+            }
+            if (dataTopAttr != null && isWithinRange(Float.parseFloat(dataTopAttr), lineYCoordinate, 30.9f)) {
+
+              float currentTopValue = Float.parseFloat(dataTopAttr); // Parse the current top value
+
+              // Check if maxTopValue contains 'E' (indicating scientific notation)
+              // if (maxTopValue != (1.4E-45) && currentTopValue > maxTopValue) {
+              diff2 = lineYCoordinate - currentTopValue;
+
+              if (currentTopValue > maxTopValue) {
+                maxTopValue = currentTopValue;
+                selectedBorderBottom = extractBorderBottom(divTag); // Extract the border-bottom
+                // System.out.println("border bottom: " + selectedBorderBottom);
+                // Check if selectedBorderBottom is null
+                if (selectedBorderBottom == null || selectedBorderBottom.isEmpty()) {
+                  // Assign a concrete value if null or empty
+                  border = selectedBorderBottom; // Example concrete value
+                  // System.out.println("Correct Border: " + border);
+                }
+                selectedIndex2 = i;
+              }
+              // System.out.println("data-top: " + dataTopAttr + "---" + "Current:" +
+              // currentTopValue + "---" + "Max:"
+              // + maxTopValue + "---" + "Y Coordinate:" + lineYCoordinate + "---" + "diff:" +
+              // diff2+"---" + "selectedIndex2:" + selectedIndex2 );
+            }
+          }
+
+          // // // Apply the background-color from the selected div to inlineStyle, if any
+          if ((selectedBackgroundColor != null) && (selectedIndex != -1) && (diff > 0.0)) {
+            inlineStyle += " background-color: " + selectedBackgroundColor + "; height:auto;";
+
+          }
+
+          if (selectedIndex2 == 2) {
+            // if (border != null) {
+            // System.out.println("Max:" + maxTopValue + "---" + "Y Coordinate:" +
+            // lineYCoordinate + "---" + "diff:" + diff2+"---" + "selectedIndex2:" +
+            // selectedIndex2 + " Border: "+finalBorder);
+            // }
+
+            lineClass = "div[data-top=\"" + lineYCoordinate + "\"]" + " .grid-cols-12  div:nth-child(2){border-bottom:"
+                + finalBorder + ";width:fit-content}";
+
+            inlineStyle += ";height:14pt" + ";"
+                + "padding-left:0;margin-left:auto;margin-right:auto;";
+
+          }
+
+          // Add the inline style to cssStyles as a dynamic class
+          cssStyles.append(".custom-class-")
+              .append(i)
+              .append(" { ")
+              .append(inlineStyle)
+              .append(" }")
+              .append(lineClass);
+
+          finalHtmlBuilder.append("<div class=\"custom-class-").append(i).append("\" data-top=\"")
+              .append(lineYCoordinate).append("\">");
+
+          finalHtmlBuilder.append("<div class=\"grid grid-cols-12").append("\">");
+
+          for (String imgTag : imageTags) {
+            String dataTopAttr = extractDataTopValue(imgTag);
+            if (dataTopAttr != null && !dataTopAttr.isEmpty()) {
+              try {
+                dataTopValue = Float.parseFloat(dataTopAttr);
+                if (isWithinRange(dataTopValue, lineYCoordinate, 35.0f)) {
+                  // finalHtmlBuilder.append(imgTag);
+                  lineYCoordinateOthers = lineYCoordinate;
+                  break;
+                }
+              } catch (NumberFormatException e) {
+                System.err.println("Invalid float value for dataTopAttr: " + dataTopAttr);
+                // Handle the invalid value as needed, e.g., skip or use a default
+              }
+            } else {
+              // System.err.println("dataTopAttr is null or empty");
+              // Handle the null or empty case as needed, e.g., skip or use a default
+            } // log.info("Processing tree with image source: " +
+
+          }
+
+          // for (String divTag : DivTags) {
+          //   String dataTopAttr = extractDataTopValue(divTag);
+          //   if (isWithinRange(Float.parseFloat(dataTopAttr), lineYCoordinate, 10.9f)) {
+          //     // finalHtmlBuilder.append(divTag);
+          //     break;
+          //   }
+          // }
+
+          // Add the empty column (left padding equivalent)
+          if (leftGridSpan > 0) {
+            finalHtmlBuilder.append("  <div class=\"col-span-").append(leftGridSpan)
+                .append(" bg-transparent\"></div>");
+          }
+
+          // Add the text column
+          finalHtmlBuilder.append("<div class=\"col-span-").append(remainingGridSpan).append(" bg-transparent\">")
+              .append(line.getText())
+              //.append(PDFToHTML.
+              .append("</div>");
+
+          finalHtmlBuilder.append("</div></div>");
+        }
+
+        String padLeftpc = "@media(max-width:539px){[class^=\"custom-class-\"]{padding-left:0;height:auto}img{position:relative!important;left:0!important;top:0!important;}.page{width:100%;border:none!important}.r{left:0!important;width:94%!important;}}@media(max-width:1280px){.r{display:none;}}</style>";
+
+        finalHtmlBuilder.append(cssStyles.toString() + padLeftpc + "</body></html>");
+
+        String finalHtmlContent = finalHtmlBuilder.toString();
+
+        // fileWriter.write(finalHtmlContent);
+
+        // Add 16pt to the top value and z-index:-1 for specific div tags
+        Pattern divPattern2 = Pattern.compile(
+            "(?i)<div([^>]*?class=\"r\"[^>]*?)style\\s*=\\s*\"([^\"]*?top:\\s*)([\\d\\.]+)pt(.*?background-color:\\s*(?!#ffffff)[^;]+;[^\"]*?)\"");
+        Matcher divMatcher2 = divPattern2.matcher(finalHtmlContent);
+        StringBuffer modifiedContent = new StringBuffer();
+
+        while (divMatcher2.find()) {
+          String prefix = divMatcher2.group(1);
+          String styleBeforeTop = divMatcher2.group(2);
+          float topValue = Float.parseFloat(divMatcher2.group(3));
+          String styleAfterTop = divMatcher2.group(4);
+          float newTopValue = topValue + 16;
+
+          String replacement = "<div" + prefix + "style=\"" + styleBeforeTop + newTopValue + "pt" + styleAfterTop
+              + " z-index:-1\"";
+          divMatcher2.appendReplacement(modifiedContent, replacement);
+        }
+        divMatcher2.appendTail(modifiedContent);
+        finalHtmlContent = modifiedContent.toString();
+
+        // Subtract 16pt from the top value for div tags where top value matches
+        // data-top attribute
+        Pattern divPattern3 = Pattern.compile(
+            "(?i)<div([^>]*?class=\"r\"[^>]*?)style\\s*=\\s*\"([^\"]*?top:\\s*)([\\d\\.]+)pt([^>]*?)\"[^>]*?data-top=\"([\\d\\.]+)\"");
+
+        Matcher divMatcher3 = divPattern3.matcher(finalHtmlContent);
+        StringBuffer modifiedContent3 = new StringBuffer();
+
+        while (divMatcher3.find()) {
+          String prefix = divMatcher3.group(1); // Group 1: part before 'top'
+          String styleBeforeTop = divMatcher3.group(2); // Group 2: style before the 'top' value
+          float topValue = Float.parseFloat(divMatcher3.group(3)); // Group 3: top value (as a float)
+          String styleAfterTop = divMatcher3.group(4); // Group 4: part after 'top'
+          float dataTopValue3 = Float.parseFloat(divMatcher3.group(5)); // Group 5: data-top value (as a float)
+
+          // Only modify if the top value (with 'pt') matches the data-top attribute
+          if (topValue == dataTopValue3) {
+            // Subtract 16pt from the top value
+            float newTopValue = topValue + 8;
+
+            // Build the replacement string with the modified top value
+            String replacement = "<div" + prefix + "style=\"" + styleBeforeTop + newTopValue + "pt" + styleAfterTop
+                + "\" data-top=\"" + dataTopValue + "\"";
+
+            // Append the modified div to the output
+            divMatcher3.appendReplacement(modifiedContent3, replacement);
+          } else {
+            // If the top value doesn't match, leave the div unchanged
+            divMatcher3.appendReplacement(modifiedContent3, divMatcher3.group(0));
+          }
+        }
+        divMatcher3.appendTail(modifiedContent3);
+
+        // Update the final HTML content with the modifications
+        finalHtmlContent = modifiedContent3.toString();
+        String firstImgTag = null;
+        boolean imgTagInserted = false; // To track if imgTag has been inserted
+        List<String> imgTagsOthers = new ArrayList<>();
+
+        // Check for missing <img> tags and add them at the top of <body> if any are
+        // missing
+        // First pass: Insert all other imgTags after </div></div>
+        for (String imgTag : imageTags) {
+          if (!finalHtmlContent.contains(imgTag)) {
+            if (!imgTagInserted) {
+              // Just skip the first imgTag here and save it for later
+              firstImgTag = imgTag;
+              imgTagInserted = true;
+            } else {
+              imgTagsOthers.add(imgTag);
+            }
+          }
+        }
+
+        // Now, handle the insertion of the other imgTags (after </div></div>)
+        // for (String imgTag : imgTagsOthers) {
+        // //if (!finalHtmlContent.contains(imgTag)) {
+        // finalHtmlContent = finalHtmlContent.replaceAll("(?i)</div></div>",
+        // "</div></div>\n" + imgTag + "\n");
+        // //}
+        // }
+
+        // After the other images are inserted, now insert the first imgTag inside the
+        // first <div> tag
+        if (firstImgTag != null) {
+          finalHtmlContent = finalHtmlContent.replaceFirst("(?i)<div.*?>", "$0" + firstImgTag + "\n");
+        }
+
+        // System.out.println(PDFToHTML.outFile);
+
+        try (FileWriter fileWriter = new FileWriter("output/" + PDFToHTML.outFile)) {
+
+          for (String imgTag : imgTagsOthers) {
+            String dataTopAttr = extractDataTopValue(imgTag);
+            if (dataTopAttr != null && !dataTopAttr.isEmpty()) {
+              try {
+                dataTopValue = Float.parseFloat(dataTopAttr);
+                // System.out
+                // .println("dataTopValue: " + dataTopValue + " --- " + "lineYCoordinate: " +
+                // lineYCoordinateOthers);
+                // Check if the dataTopValue falls within the range
+                if (isWithinRange(dataTopValue, lineYCoordinateOthers, 24.0f)) {
+                  // Locate the appropriate div with the corresponding data-top value
+                  // Step 1: Extract the inner HTML of the div with the matching data-top
+                  // Step 1: Update regex to match the div with data-top and capture everything
+                  // inside it
+                  String divRegex2 = "(?i)(<div[^>]*class=\"custom-class-[^\"]*\"[^>]*data-top=\""
+                      + lineYCoordinateOthers + "\"[^>]*>)(.*?<div class=\"grid grid-cols-12\">(.*?)</div>.*?)</div>";
+
+                  // Use Matcher to find the div with the corresponding data-top value
+                  Matcher matcherOthers = Pattern.compile(divRegex2, Pattern.DOTALL).matcher(finalHtmlContent);
+
+                  if (matcherOthers.find()) {
+                    // Step 2: Extract the entire div content (including the opening and closing
+                    // tags)
+                    String divContent = matcherOthers.group(1); // The entire content of the div, including inner HTML
+
+                    // Step 3: Log the div content to verify
+                    // System.out.println("Div Content: " + divContent);
+
+                    String divInnerContent = matcherOthers.group(2);
+
+                    // Step 4: Find where to insert the imgTag - this is where you manually insert
+                    // the image tag
+                    String updatedDiv = divContent + divInnerContent + "\n" + imgTag + "\n"; // Append the imgTag before
+                                                                                             // the closing div tag
+                    // System.out.println("updatedDiv: " + updatedDiv);
+
+                    // Step 5: Replace the original div in the final HTML content with the updated
+                    // div
+                    finalHtmlContent = finalHtmlContent.replaceFirst(divRegex2, updatedDiv);
+                  }
+
+                  break; // Assuming only one imgTag needs to be added to the matching div
+                }
+              } catch (NumberFormatException e) {
+                System.err.println("Invalid float value for dataTopAttr: " + dataTopAttr);
+                // Handle the invalid value as needed, e.g., skip or use a default
+              }
+            } else {
+              // System.err.println("dataTopAttr is null or empty");
+              // Handle the null or empty case as needed, e.g., skip or use a default
+            }
+
+          }
+          finalHtmlContent = finalHtmlContent.replaceAll(
+              "(?i)<img([^>]*?)style\\s*=\\s*\"([^\"]*?)position\\s*:\\s*absolute([^>]*?)\"", "<img$1style=\"$2$3\"");
+          finalHtmlContent = finalHtmlContent.replaceAll(
+              "(?i)<img([^>]*?)style\\s*=\\s*\"([^\"]*?)left\\s*:\\s*[^;]+;([^>]*?)\"", "<img$1style=\"$2$3\"");
+          finalHtmlContent = finalHtmlContent.replaceAll(
+              "(?i)<img([^>]*?)style\\s*=\\s*\"([^\"]*?)top\\s*:\\s*[^;]+;([^>]*?)\"", "<img$1style=\"$2$3\"");
+          finalHtmlContent = finalHtmlContent.replaceAll(
+              "(?i)<div[^>]*class=\"r\"[^>]*style\\s*=\\s*\"[^\"]*background-color:\\s*#ffffff;[^\"]*\"[^>]*>.*?</div>",
+              "");
+
+          finalHtmlContent = finalHtmlContent.replaceAll(
+              "(?i)(<div[^>]*class=\"r\"[^>]*>)(.*?)(</div>)", "$1&nbsp;$3");
+
+          fileWriter.write(finalHtmlContent);
+          System.out.println("HTML content successfully saved to " + PDFToHTML.outFile);
+        } catch (IOException e) {
+          System.err.println("Error while writing to file: " + e.getMessage());
+        }
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
     }
   }
 

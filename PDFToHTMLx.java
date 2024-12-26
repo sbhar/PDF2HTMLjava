@@ -1,4 +1,22 @@
-
+/**
+ * PDFToHTML.java
+ * (c) Radek Burget, 2011
+ *
+ * Pdf2Dom is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *  
+ * Pdf2Dom is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *  
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with CSSBox. If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * Created on 19.9.2011, 13:34:54 by burgetr
+ */
 package org.fit.pdfdom;
 
 import java.io.BufferedReader;
@@ -7,18 +25,13 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
-
-import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
 //import org.fit.pdfdom.ConcretePDFBoxTree.TextLine;
 import org.fit.pdfdom.resource.HtmlResourceHandler;
 import org.fit.pdfdom.resource.IgnoreResourceHandler;
@@ -63,7 +76,6 @@ public class PDFToHTML {
         String filePath = "test.pdf";
         String outputDir = "output";
         globalConfig = PDFDomTreeConfig.createDefaultConfig();
-        
 
         // Set the logging level for the specific logger
         LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
@@ -72,6 +84,11 @@ public class PDFToHTML {
 
         // Set the level to ERROR or OFF
         logger.setLevel(Level.OFF);
+
+        // Example logging to verify
+        // Logger appLogger = LoggerFactory.getLogger(Main.class);
+        // appLogger.info("This is an info log."); // This will still log
+        // appLogger.error("This is an error log."); // This will still log
 
         if (args.length < 1) {
             System.out.println("Usage: PDFToHTML <infile> [<outfile>] [<options>]");
@@ -105,30 +122,8 @@ public class PDFToHTML {
         PDDocument document = null;
         org.fit.pdfdom.PDFDomTree parser = null;
         // List<TextLine> textLines=null;
-
         try {
-            document = PDDocument.load(new File(infile));
-            
-            // try (Writer output = new PrintWriter("test.html", "utf-8")) {
-            //     document = PDDocument.load(new File(infile));
-            //     //parserOldx.createDOM(document);
-            //     parserNew.writeText(document, output);
-            //     System.out.println("HTML file generated: " + outfile);
-            // }
-           
-        //   } catch (Exception e) {
-        //     System.err.println("Error: " + e.getMessage());
-        //     e.printStackTrace();
-        //   } finally {
-        //     if (document != null)
-        //       try {
-        //         document.close();
-        //       } catch (IOException e) {
-        //         System.err.println("Error: " + e.getMessage());
-        //       }  
-        //   } 
-        // try {
-            //System.out.println(infile);
+            System.out.println(infile);
 
             // MyConcretePDFBoxTree processor = new MyConcretePDFBoxTree(outputDir);
 
@@ -148,6 +143,13 @@ public class PDFToHTML {
 
             // Start the process
             Process process = processBuilder.start();
+
+            // Read the output of the command
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
 
             // Check if the output file exists
             File outputFile = new File(outfile);
@@ -171,109 +173,113 @@ public class PDFToHTML {
                 // Sort the lines by their Y-coordinate
                 sortTextLines();
 
-                PDFTextProcessor processor = new PDFTextProcessor();
+                // Print the extracted text lines
+                // for (TextLine line2 : textLines) {
+                // System.out.println("Line: " + line2.getText() + ", Y: " +
+                // line2.getYCoordinate());
 
-                // Mock input data
-                List<TextPositionMock> textPositions = new ArrayList<>();
-                float linePadding = 0.0f;
+                // }
 
-                for (TextLine line : textLines) {
-                    //parser2.textLiner = line.getText();
-                    textPositions.add(new TextPositionMock(line.getText(), 10, 20));
-                    linePadding = line.getLeftPadding();
-                }
+                // List<ConcretePDFBoxTree.TextLine> convertedTextLines = new ArrayList<>();
+                // for (PDFToHTML.TextLine textLine : textLines) {
+                // ConcretePDFBoxTree.TextLine convertedLine = new
+                // ConcretePDFBoxTree.TextLine();
+                // // Map properties from PDFToHTML.TextLine to ConcretePDFBoxTree.TextLine
+                // // Example:
+                // // convertedLine.setSomeProperty(textLine.getSomeProperty());
+                // convertedTextLines.add(convertedLine);
 
-                // Process the text positions into lines
-                processor.processTextPositions(textPositions);
+                // }
+                // parser2.textLinesParser = convertedTextLines;
+                // parser2.saveHtmlContentToFile2(htmlContent, convertedTextLines);
 
-                // Assuming processor is an instance of PDFTextProcessor
-                List<String> lines = processor.getTextLinesAsList();
-                //parser2.liner = lines;
+                // Assuming containerWidth is defined somewhere earlier in the code
 
-                // for (String line : lines ) {
-                //     System.out.println(line);
-                //     }
-
-                // HTML generation
                 StringBuilder finalHtmlBuilder = new StringBuilder();
                 StringBuilder cssStyles = new StringBuilder();
 
+                // Define some CSS for the page
                 cssStyles.append(
-                        "<style>.r{color:white;}[class^=\"custom-class-\"]{min-height:16pt;}@media(min-width:1280px){.custom-class-0{margin-top:4pt}.page{border:1px solid blue;width:560pt;}}</style>");
+                        "<style>.r{color:white;}[class^=\"custom-class-\"]{min-height:16pt}@media(min-width: 1280px){.custom-class-0{margin-top:4pt}.page{border:1px solid blue;width:"
+                                + "560pt;}}");
 
+                // Start building the HTML
                 finalHtmlBuilder.append(
                         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\"/>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>\n<title>PDF Extracted Text</title>\n<script src=\"https://cdn.tailwindcss.com\"></script>\n<style>")
-                        .append(cssStyles)
+                        // .append(createFontFaces())
+                        .append(
+                                "@media(min-width: 1280px){.r{display:block}.custom-class-0{margin-top:4pt}.page{border:1px solid blue;width:"
+                                        + "560pt;}}")
+                        .append("</style>")
+                        // .append(styleContent)
                         .append("</head>\n<body>\n<div class=\"mx-auto sm:max-w-screen-sm md:max-w-screen-md lg:max-w-screen-lg xl:max-w-screen-xl relative p-4 my-10 page\">");
 
-                for (int i = 0; i < lines.size(); i++) {
-                    String textLine = lines.get(i);
-                    float leftPaddingPercent = 0; // Replace with logic to calculate padding
+                // Loop through text lines and build HTML structure
+                float lineYCoordinate = 0.0f;
+
+                // Assuming textLines is a List<TextLine>
+                for (int i = 0; i < textLines.size(); i++) {
+                    TextLine line2 = textLines.get(i); // Using textLines instead of textLinesParser
+                    lineYCoordinate = line2.getYCoordinate();
+                    float leftPaddingPercent = Math.max((line2.getLeftPadding() / 560) * 100, 0);
+
+                    // Define font size range
                     final float MIN_FONT_SIZE = 8f;
                     final float MAX_FONT_SIZE = 32f;
-                    float fontSize = 12f; // Replace with logic to determine font size
+
+                    // Clamp the font size to a range
+                    float fontSize = 12f; // Assuming a static value here for demonstration
                     float clampedFontSize = Math.min(MAX_FONT_SIZE, Math.max(fontSize, MIN_FONT_SIZE));
-                    //TextLine line = textLine;
 
-                    //leftPaddingPercent = Math.max((linePadding / 560) * 100, 0);
-
-                    int leftGridSpan = (int) Math.round((leftPaddingPercent / 100) * 12);
+                    int leftGridSpan = (int) Math.round((leftPaddingPercent / 100) * 12); // Convert percentage to grid
+                                                                                          // span
                     int remainingGridSpan = Math.max(12 - leftGridSpan, 1);
 
+                    // Generate the inline style for the text line
                     String inlineStyle = "font-family: Arial, sans-serif; font-weight: normal; font-size: "
                             + Math.round(clampedFontSize) + "pt; height: auto; padding-left: " + leftPaddingPercent
                             + "%;";
 
-                    cssStyles.append(".custom-class-").append(i).append(" { ").append(inlineStyle).append(" }");
+                    cssStyles.append(".custom-class-")
+                            .append(i)
+                            .append(" { ")
+                            .append(inlineStyle)
+                            .append(" }");
 
-                    finalHtmlBuilder.append("<div class=\"custom-class-").append(i).append("\" data-top=\"").append(i)
-                            .append("\">");
+                    // Start building the HTML for this text line
+                    finalHtmlBuilder.append("<div class=\"custom-class-").append(i).append("\" data-top=\"")
+                            .append(lineYCoordinate).append("\">");
 
                     finalHtmlBuilder.append("<div class=\"grid grid-cols-12\">");
 
+                    // Add the empty column (left padding equivalent)
                     if (leftGridSpan > 0) {
-                        finalHtmlBuilder.append("<div class=\"col-span-").append(leftGridSpan)
+                        finalHtmlBuilder.append("  <div class=\"col-span-").append(leftGridSpan)
                                 .append(" bg-transparent\"></div>");
                     }
 
+                    // Add the text column
                     finalHtmlBuilder.append("<div class=\"col-span-").append(remainingGridSpan)
                             .append(" bg-transparent\">")
-                            .append(textLine).append("</div>");
+                            .append(line2.getText())
+                            .append("</div>");
 
                     finalHtmlBuilder.append("</div></div>");
                 }
 
+                // Closing the HTML tags
                 finalHtmlBuilder.append("</div></body></html>");
+
+                // Add media queries and finalize the HTML output
+                String padLeftpc = "@media(max-width:539px){[class^=\"custom-class-\"]{padding-left:0;height:auto}img{position:relative!important;left:0!important;top:0!important;}.page{width:100%;border:none!important}.r{left:0!important;width:94%!important;}}@media(max-width:1280px){.r{display:none;}}</style>";
+
+                finalHtmlBuilder.append(cssStyles.toString() + padLeftpc);
 
                 String finalHtmlContent = finalHtmlBuilder.toString();
 
-                try (FileWriter fileWriter = new FileWriter("output/Responsive_" + PDFToHTML.outFile )) {
+                try (FileWriter fileWriter = new FileWriter("output/" + PDFToHTML.outFile)) {
                     fileWriter.write(finalHtmlContent);
                 }
-
-            //     PDFDomTree parserOld = new PDFDomTree(config);
-            // // Writer output = new PrintWriter(outfile, "utf-8");
-            // // Custom Writer that filters invalid XML characters
-            // System.out.println(outfile);
-
-            // PDFTextStripper stripper = new PDFTextStripper();
-            // String rawText = stripper.getText(document);
-
-            // // Sanitize the text for invalid XML characters
-            // String sanitizedText = sanitizeText(rawText);
-            // // Use SanitizingWriter with parserOld
-            // // Use custom PDFDomTree with sanitized text
-            // CustomPDFDomTree parserOldx = new CustomPDFDomTree();
-
-            // PDFDomTreeOld parserNew = new PDFDomTreeOld(config);
-            // Writer output = new PrintWriter(outfile, "utf-8");
-            // document = PDDocument.load(new File(infile));
-            // parserNew.writeText(document, output);
-
-            MyConcretePDFBoxTree processorConcrete = new MyConcretePDFBoxTree(outputDir);
-
-            processorConcrete.processDocument(document);
-
 
             } else {
                 System.out.println("Output file was not created or is empty.");
@@ -291,79 +297,6 @@ public class PDFToHTML {
                     // e.printStackTrace();
                 }
             }
-        }
-    }
-
-    static String sanitizeText(String input) {
-        return input.replaceAll("[^\\x20-\\x7E\\xA0-\\uD7FF\\uE000-\\uFFFD]", ""); // Remove invalid characters
-    }
-
-    // Custom PDFDomTree that sanitizes invalid XML characters
-    static class CustomPDFDomTree extends PDFDomTree {
-        public CustomPDFDomTree() throws IOException, ParserConfigurationException {
-            super();
-            //TODO Auto-generated constructor stub
-        }
-
-        private static final Pattern INVALID_XML_CHAR_PATTERN = Pattern.compile("[^\\x20-\\x7E\\xA0-\\uD7FF\\uE000-\\uFFFD]");
-
-       // Override the writeText method to filter invalid XML characters
-       @Override
-       public void writeText(PDDocument document, Writer output) throws IOException {
-           // Use PDFTextStripper to extract raw text
-           PDFTextStripper stripper = new PDFTextStripper();
-           String rawText = stripper.getText(document);
-
-           // Sanitize the raw text
-           String sanitizedText = sanitizeText(rawText);
-
-           // Write sanitized text to output
-           output.write(sanitizedText);
-       }
-
-        // Helper method to sanitize invalid XML characters
-        private String sanitizeText(String input) {
-            return INVALID_XML_CHAR_PATTERN.matcher(input).replaceAll("");
-        }
-    }
-
-    
-    // Custom Writer to filter invalid XML characters
-    static class SanitizingWriter extends Writer {
-        private final Writer wrappedWriter;
-        private static final Pattern INVALID_XML_CHAR_PATTERN = Pattern.compile("[^\\x20-\\x7E\\xA0-\\uD7FF\\uE000-\\uFFFD]");
-
-        public SanitizingWriter(Writer wrappedWriter) {
-            this.wrappedWriter = wrappedWriter;
-        }
-
-        @Override
-        public void write(char[] cbuf, int off, int len) throws IOException {
-            // Sanitize text and write to wrappedWriter
-            String sanitized = sanitizeText(new String(cbuf, off, len));
-            wrappedWriter.write(sanitized);
-        }
-
-        @Override
-        public void write(String str) throws IOException {
-            // Sanitize text and write to wrappedWriter
-            String sanitized = sanitizeText(str);
-            wrappedWriter.write(sanitized);
-        }
-
-        @Override
-        public void flush() throws IOException {
-            wrappedWriter.flush();
-        }
-
-        @Override
-        public void close() throws IOException {
-            wrappedWriter.close();
-        }
-
-        // Helper method to sanitize text
-        private String sanitizeText(String input) {
-            return INVALID_XML_CHAR_PATTERN.matcher(input).replaceAll("");
         }
     }
 
@@ -405,7 +338,7 @@ public class PDFToHTML {
             PDFDomTreeOld parser = new PDFDomTreeOld(config);
             // Load the PDF document
             document = PDDocument.load(new File(infile));
-            System.out.println("PDF loaded successfully in PDFToHTML.");
+            // System.out.println("PDF loaded successfully in PDFToHTML.");
 
             parser.createDOM(document);
             // System.out.println("html content @main: " + config.getHtmlOutput());
@@ -587,8 +520,7 @@ public class PDFToHTML {
     private boolean isSameLine(TextPositionMock textPosition, TextLine lastLine) {
         // Check if the text position belongs to the same line (based on Y-coordinate)
         final float margin = 2.0f; // Adjust margin as needed
-        if (lastLine.isEmpty())
-            return false; // If lastLine is empty, it's a new line
+        if (lastLine.isEmpty()) return false; // If lastLine is empty, it's a new line
 
         float lastY = lastLine.getLastTextPosition().getYDirAdj();
         return Math.abs(lastY - textPosition.getYDirAdj()) < margin;
@@ -610,60 +542,7 @@ public class PDFToHTML {
         }
     }
 
-}
-
-class PDFTextProcessor {
-
-    private List<TextLine> textLines = new ArrayList<>();
-
-    public void processTextPositions(List<TextPositionMock> textPositions) {
-        // Iterate over the text positions to group them into lines
-        for (TextPositionMock textPosition : textPositions) {
-            if (textLines.isEmpty() || !isSameLine(textPosition, textLines.get(textLines.size() - 1))) {
-                // New line starts
-                textLines.add(new TextLine());
-            }
-            // Add the text position to the current line
-            textLines.get(textLines.size() - 1).add(textPosition);
-        }
-
-        // Sort lines by Y-coordinate (top to bottom)
-        sortTextLinesByYCoordinate();
-    }
-
-    private boolean isSameLine(TextPositionMock textPosition, TextLine lastLine) {
-        // Check if the text position belongs to the same line (based on Y-coordinate)
-        final float margin = 2.0f; // Adjust margin as needed
-        if (lastLine.isEmpty())
-            return false; // If lastLine is empty, it's a new line
-
-        float lastY = lastLine.getLastTextPosition().getYDirAdj();
-        return Math.abs(lastY - textPosition.getYDirAdj()) < margin;
-    }
-
-    private void sortTextLinesByYCoordinate() {
-        // Sort the lines based on the Y-coordinate of the first text position
-        Collections.sort(textLines, new Comparator<TextLine>() {
-            @Override
-            public int compare(TextLine line1, TextLine line2) {
-                return Float.compare(line1.getYCoordinate(), line2.getYCoordinate());
-            }
-        });
-    }
-
-    public void printTextLines() {
-        for (TextLine line : textLines) {
-            System.out.println(line.getText());
-        }
-    }
-
-    public List<String> getTextLinesAsList() {
-        List<String> lines = new ArrayList<>();
-        for (TextLine line : textLines) {
-            lines.add(line.getText());
-        }
-        return lines;
-    }
+    
 }
 
 // Supporting Classes
@@ -717,13 +596,9 @@ class TextLine {
     public boolean isEmpty() {
         return textPositions.isEmpty();
     }
-
     public float getLeftPadding() {
         // You could calculate left padding based on xDirAdj or any other criteria
         return textPositions.isEmpty() ? 0 : textPositions.get(0).getXDirAdj();
     }
-
+    
 }
-
-
-

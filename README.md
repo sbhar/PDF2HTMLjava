@@ -19,7 +19,7 @@ of Pdf2Dom with no font decoding support but significantly reduced dependencies.
 
 ----
 
-Readme from Sugata Bhar's end tested with only 2 files test.pdf and license.pdf
+Readme from Sugata Bhar's end tested with only 1 file test.pdf 
 
 This is a Maven based project.
 
